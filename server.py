@@ -4,9 +4,27 @@ import time
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
+from pymongo import MongoClient
+from datetime import datetime, timedelta
 
-messages = []
-OWNER_PASSWORD = "ilia2024"
+MONGO_URL = "mongodb+srv://936028_db_user:DKo28gmaeJnklynL@cluster0.bd81c1e.mongodb.net/?appName=Cluster0"
+client = MongoClient(MONGO_URL)
+db = client["ilia_chat"]
+collection = db["messages"]
+
+def get_messages():
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+    msgs = list(collection.find({"created_at": {"$gt": cutoff}}, {"_id": 0}).sort("created_at", 1))
+    return msgs
+
+def save_message(sender, text):
+    t = time.strftime('%H:%M')
+    collection.insert_one({
+        "sender": sender,
+        "text": text,
+        "time": t,
+        "created_at": datetime.utcnow()
+    })
 
 HTML = open("index.html", "r").read()
 
@@ -22,11 +40,12 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(HTML.encode('utf-8'))
         elif parsed.path == '/messages':
+            msgs = get_messages()
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(json.dumps(messages).encode())
+            self.wfile.write(json.dumps(msgs).encode())
         else:
             self.send_response(404)
             self.end_headers()
@@ -38,10 +57,7 @@ class Handler(BaseHTTPRequestHandler):
             sender = body.get('sender', 'Unknown')[:30]
             text = body.get('text', '')[:1000].strip()
             if text:
-                t = time.strftime('%H:%M')
-                messages.append({'sender': sender, 'text': text, 'time': t})
-                if len(messages) > 500:
-                    messages.pop(0)
+                save_message(sender, text)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
@@ -52,3 +68,9 @@ if __name__ == '__main__':
     server = HTTPServer(('0.0.0.0', PORT), Handler)
     print(f"ilia_chat running on port {PORT}")
     server.serve_forever()
+```
+
+А в `requirements.txt` замени на это:
+```
+pymongo[srv]==4.6.1
+dnspython==2.4.2

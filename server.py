@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 
-MONGO_URL = "mongodb+srv://936028_db_user:DKo28gmaeJnklynL@cluster0.bd81c1e.mongodb.net/?appName=Cluster0"
+MONGO_URL = os.environ.get("MONGO_URL")
 client = MongoClient(MONGO_URL)
 db = client["ilia_chat"]
 collection = db["messages"]
@@ -68,9 +68,3 @@ if __name__ == '__main__':
     server = HTTPServer(('0.0.0.0', PORT), Handler)
     print(f"ilia_chat running on port {PORT}")
     server.serve_forever()
-```
-
-А в `requirements.txt` замени на это:
-```
-pymongo[srv]==4.6.1
-dnspython==2.4.2

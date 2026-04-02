@@ -65,46 +65,61 @@ body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #
 </div>
 <script>
 const OWNER_PASS = 'ilia2024';
+const SESSION_KEY = 'ilia_session_v2';
 const SESSION_HOURS = 4;
 let myName = '';
 let lastCount = 0;
+
 function restoreSession() {
   try {
-    const saved = localStorage.getItem('ilia_session');
+    const saved = localStorage.getItem(SESSION_KEY);
     if (!saved) return false;
     const s = JSON.parse(saved);
+    if (!s.name || !s.ts) return false;
     const age = (Date.now() - s.ts) / 3600000;
-    if (age > SESSION_HOURS) { localStorage.removeItem('ilia_session'); return false; }
+    if (age > SESSION_HOURS) { localStorage.removeItem(SESSION_KEY); return false; }
     myName = s.name;
     return true;
-  } catch(e) { return false; }
+  } catch(e) { localStorage.removeItem(SESSION_KEY); return false; }
 }
+
 function saveSession(name) {
-  localStorage.setItem('ilia_session', JSON.stringify({ name, ts: Date.now() }));
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ name, ts: Date.now() }));
 }
+
 function joinChat() {
   const name = document.getElementById('nameInput').value.trim();
   const pass = document.getElementById('passInput').value.trim();
   if (!name) { document.getElementById('nameInput').focus(); return; }
-  if (pass && pass !== OWNER_PASS) { document.getElementById('loginErr').style.display = 'block'; return; }
+  if (pass && pass !== OWNER_PASS) {
+    document.getElementById('loginErr').style.display = 'block';
+    return;
+  }
   myName = (pass === OWNER_PASS) ? 'Илья' : name;
   saveSession(myName);
   startChat();
 }
+
 function startChat() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('chatScreen').style.display = 'flex';
   loadMessages();
-  setInterval(loadMessages, 1500);
+  setInterval(loadMessages, 2000);
   document.getElementById('msgInput').focus();
 }
+
 async function loadMessages() {
   try {
     const res = await fetch('/messages');
+    if (!res.ok) return;
     const data = await res.json();
-    if (data.length !== lastCount) { lastCount = data.length; renderMessages(data); }
+    if (data.length !== lastCount) {
+      lastCount = data.length;
+      renderMessages(data);
+    }
   } catch(e) {}
 }
+
 function renderMessages(msgs) {
   const container = document.getElementById('messages');
   const empty = document.getElementById('emptyMsg');
@@ -115,22 +130,48 @@ function renderMessages(msgs) {
   msgs.forEach(m => {
     const div = document.createElement('div');
     div.className = 'msg ' + (m.sender === myName ? 'me' : 'them');
-    div.innerHTML = (m.sender !== myName ? `<div class="sender">${esc(m.sender)}</div>` : '') + `<div>${esc(m.text)}</div><div class="time">${m.time}</div>`;
+    div.innerHTML = (m.sender !== myName ? `<div class="sender">${esc(m.sender)}</div>` : '') +
+      `<div>${esc(m.text)}</div><div class="time">${m.time}</div>`;
     container.appendChild(div);
   });
   if (atBottom) container.scrollTop = container.scrollHeight;
 }
-function esc(t) { return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
+function esc(t) {
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
 async function sendMsg() {
   const input = document.getElementById('msgInput');
   const text = input.value.trim();
   if (!text || !myName) return;
-  input.value = ''; input.style.height = 'auto';
-  try { await fetch('/send', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ sender: myName, text }) }); loadMessages(); } catch(e) {}
+  input.value = '';
+  input.style.height = 'auto';
+  try {
+    await fetch('/send', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ sender: myName, text })
+    });
+    loadMessages();
+  } catch(e) {}
 }
-function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } }
-function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 100) + 'px'; }
-if (restoreSession()) { startChat(); }
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+if (restoreSession() && myName) {
+  startChat();
+} else {
+  localStorage.removeItem(SESSION_KEY);
+  document.getElementById('loginScreen').style.display = 'flex';
+}
 </script>
 </body>
 </html>

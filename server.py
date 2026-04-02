@@ -14,7 +14,10 @@ collection = db["messages"]
 
 def get_messages():
     cutoff = datetime.utcnow() - timedelta(hours=24)
-    msgs = list(collection.find({"created_at": {"$gt": cutoff}}, {"_id": 0}).sort("created_at", 1))
+    msgs = list(collection.find(
+        {"created_at": {"$gt": cutoff}},
+        {"_id": 0, "created_at": 0}
+    ).sort("created_at", 1))
     return msgs
 
 def save_message(sender, text):
